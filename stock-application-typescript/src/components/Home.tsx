@@ -3,7 +3,6 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// Type definition for portfolio items
 interface PortfolioItem {
     id: string;
     instrument: string;
@@ -14,46 +13,56 @@ interface PortfolioItem {
     unrealized_profit_loss: number;
 }
 
-// Type definition for transaction items
 interface Transaction {
     id: string;
     date: string;
     instrument: string;
-    operation: 'buy' | 'sell';
+    operation: string;
     shares: number;
     price: number;
 }
 
-function Home(): JSX.Element {
-    // State for storing portfolio data
+function Home() {
     const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
-    // State for storing recent transactions
     const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
 
-    useEffect(() => {
-        // Fetch portfolio data
-        axios.get<PortfolioItem[]>('http://localhost:8000/portfolio')
-            .then(response => {
-                setPortfolio(response.data);
-            })
-            .catch(error => {
-                console.error("Error fetching portfolio data:", error);
-                toast.error("Failed to fetch portfolio data.");
-            });
+    // Fetch data from the server
+    const fetchData = async (url: string) => {
+        try {
+            const response = await axios.get(url);
+            return response.data;
+        } catch (error) {
+            console.error(`Error fetching data from ${url}:`, error);
+            throw error;
+        }
+    };
 
-        // Fetch transactions data and get the 5 most recent ones
-        axios.get<Transaction[]>('http://localhost:8000/transactions')
-            .then(response => {
-                const sortedTransactions = response.data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    useEffect(() => {
+        const getPortfolioData = async () => {
+            try {
+                const data = await fetchData('http://localhost:8000/portfolio');
+                setPortfolio(data as PortfolioItem[]); // Ensure type casting for TypeScript
+            } catch {
+                toast.error("Failed to fetch portfolio data.");
+            }
+        };
+
+        const getRecentTransactions = async () => {
+            try {
+                const data = await fetchData('http://localhost:8000/transactions');
+                const sortedTransactions = (data as Transaction[]).sort(
+                    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+                );
                 setRecentTransactions(sortedTransactions.slice(0, 5));
-            })
-            .catch(error => {
-                console.error("Error fetching transactions:", error);
+            } catch {
                 toast.error("Failed to fetch transactions.");
-            });
+            }
+        };
+
+        getPortfolioData();
+        getRecentTransactions();
     }, []);
 
-    // Calculate total market value and total profit/loss for the portfolio status
     const totalMarketValue = portfolio.reduce((total, item) => total + item.market_value, 0);
     const totalProfitLoss = portfolio.reduce((total, item) => total + item.unrealized_profit_loss, 0);
 
@@ -81,7 +90,10 @@ function Home(): JSX.Element {
                         </thead>
                         <tbody>
                         {recentTransactions.map((transaction, index) => (
-                            <tr key={transaction.id} className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                            <tr
+                                key={transaction.id}
+                                className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                            >
                                 <td className="p-3">{transaction.date}</td>
                                 <td className="p-3">{transaction.instrument}</td>
                                 <td className="p-3">

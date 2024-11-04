@@ -4,7 +4,7 @@ import { Line } from 'react-chartjs-2';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// Define TypeScript interfaces for data types
+// Define types for Portfolio and Transactions
 interface PortfolioItem {
     id: string;
     instrument: string;
@@ -19,86 +19,89 @@ interface Transaction {
     id: string;
     date: string;
     instrument: string;
-    operation: 'buy' | 'sell';
+    operation: string;
     shares: number;
     price: number;
 }
 
-interface DateRange {
-    startDate: string;
-    endDate: string;
-}
-
 function Portfolio() {
-    // State hooks with types
     const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
     const [selectedInstrument, setSelectedInstrument] = useState<string | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
     const [viewType, setViewType] = useState<'graph' | 'history'>('graph');
     const [sortOption, setSortOption] = useState<string>('');
-    const [operationFilter, setOperationFilter] = useState<'all' | 'buy' | 'sell'>('all');
-    const [dateRange, setDateRange] = useState<DateRange>({ startDate: '', endDate: '' });
+    const [operationFilter, setOperationFilter] = useState<string>('all');
+    const [dateRange, setDateRange] = useState<{ startDate: string; endDate: string }>({ startDate: '', endDate: '' });
     const [searchQuery, setSearchQuery] = useState<string>('');
 
-    // Fetch portfolio and transaction data
-    useEffect(() => {
-        axios.get<PortfolioItem[]>('http://localhost:8000/portfolio')
-            .then(response => {
-                setPortfolio(response.data);
-            })
-            .catch(error => {
-                console.error("Error fetching portfolio data:", error);
-                toast.error("Failed to fetch portfolio data.");
-            });
+    // Fetch data function
+    const fetchData = async (url: string) => {
+        try {
+            const response = await axios.get(url);
+            return response.data;
+        } catch (error) {
+            console.error(`Error fetching data from ${url}:`, error);
+            throw error;
+        }
+    };
 
-        axios.get<Transaction[]>('http://localhost:8000/transactions')
-            .then(response => {
-                setTransactions(response.data);
-            })
-            .catch(error => {
-                console.error("Error fetching transactions:", error);
+    useEffect(() => {
+        const getPortfolioData = async () => {
+            try {
+                const data = await fetchData('http://localhost:8000/portfolio');
+                setPortfolio(data as PortfolioItem[]);
+            } catch {
+                toast.error("Failed to fetch portfolio data.");
+            }
+        };
+
+        const getTransactionsData = async () => {
+            try {
+                const data = await fetchData('http://localhost:8000/transactions');
+                setTransactions(data as Transaction[]);
+            } catch {
                 toast.error("Failed to fetch transactions.");
-            });
+            }
+        };
+
+        getPortfolioData();
+        getTransactionsData();
     }, []);
 
-    // Handle clicking on an instrument to filter transactions
     const handleInstrumentClick = (instrument: string) => {
         setSelectedInstrument(instrument);
         filterTransactions(instrument, sortOption, operationFilter, dateRange);
         setViewType('graph');
     };
 
-    // Handle date range change and filter transactions accordingly
     const handleDateRangeChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setDateRange(prevRange => ({ ...prevRange, [name]: value }));
+        setDateRange((prevRange) => ({ ...prevRange, [name]: value }));
         filterTransactions(selectedInstrument, sortOption, operationFilter, { ...dateRange, [name]: value });
     };
 
-    // Filter transactions based on various criteria
     const filterTransactions = (
         instrument: string | null,
         sortOption: string,
-        operationFilter: 'all' | 'buy' | 'sell',
-        dateRange: DateRange
+        operationFilter: string,
+        dateRange: { startDate: string; endDate: string }
     ) => {
-        let filtered = transactions.filter(t => t.instrument === instrument);
+        if (!instrument) return;
 
-        // Apply operation filter
+        let filtered = transactions.filter((t) => t.instrument === instrument);
+
         if (operationFilter !== 'all') {
-            filtered = filtered.filter(t => t.operation === operationFilter);
+            filtered = filtered.filter((t) => t.operation === operationFilter);
         }
 
-        // Apply date range filter
         if (dateRange.startDate) {
-            filtered = filtered.filter(t => new Date(t.date) >= new Date(dateRange.startDate));
+            filtered = filtered.filter((t) => new Date(t.date) >= new Date(dateRange.startDate));
         }
         if (dateRange.endDate) {
-            filtered = filtered.filter(t => new Date(t.date) <= new Date(dateRange.endDate));
+            filtered = filtered.filter((t) => new Date(t.date) <= new Date(dateRange.endDate));
         }
 
-        // Apply sorting
         if (sortOption === 'date-asc') {
             filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         } else if (sortOption === 'date-desc') {
@@ -112,48 +115,43 @@ function Portfolio() {
         setFilteredTransactions(filtered);
     };
 
-    // Handle change in sort option
     const handleSortChange = (e: ChangeEvent<HTMLSelectElement>) => {
         const option = e.target.value;
         setSortOption(option);
         filterTransactions(selectedInstrument, option, operationFilter, dateRange);
     };
 
-    // Handle change in operation filter
     const handleOperationFilterChange = (e: ChangeEvent<HTMLSelectElement>) => {
-        const filter = e.target.value as 'all' | 'buy' | 'sell';
+        const filter = e.target.value;
         setOperationFilter(filter);
         filterTransactions(selectedInstrument, sortOption, filter, dateRange);
     };
 
-    // Handle search query change for the portfolio
     const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
         setSearchQuery(e.target.value);
     };
 
-    // Filtered portfolio based on search query
-    const filteredPortfolio = portfolio.filter(item =>
+    const filteredPortfolio = portfolio.filter((item) =>
         item.instrument.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // Render graph view for transactions
     const renderGraph = () => {
         if (filteredTransactions.length === 0) {
             return <p className="text-gray-600">No transaction data available for this instrument.</p>;
         }
 
         const chartData = {
-            labels: filteredTransactions.map(t => t.date),
+            labels: filteredTransactions.map((t) => t.date),
             datasets: [
                 {
                     label: `Price Trend for ${selectedInstrument}`,
-                    data: filteredTransactions.map(t => t.price),
+                    data: filteredTransactions.map((t) => t.price),
                     borderColor: 'rgba(75, 192, 192, 1)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     fill: true,
-                    tension: 0.1
-                }
-            ]
+                    tension: 0.1,
+                },
+            ],
         };
 
         return (
@@ -164,7 +162,6 @@ function Portfolio() {
         );
     };
 
-    // Render transaction history table
     const renderTransactionHistory = () => (
         <div className="overflow-x-auto">
             <h3 className="text-2xl font-bold mb-4">Transaction History for {selectedInstrument}</h3>
@@ -227,15 +224,15 @@ function Portfolio() {
                             <td className="p-3">{transaction.date}</td>
                             <td className="p-3">{transaction.instrument}</td>
                             <td className="p-3">
-                                <span
-                                    className={`inline-block px-2 py-1 rounded-full text-sm font-medium ${
-                                        transaction.operation === 'buy'
-                                            ? 'bg-green-100 text-green-800'
-                                            : 'bg-red-100 text-red-800'
-                                    }`}
-                                >
-                                    {transaction.operation.charAt(0).toUpperCase() + transaction.operation.slice(1)}
-                                </span>
+                                    <span
+                                        className={`inline-block px-2 py-1 rounded-full text-sm font-medium ${
+                                            transaction.operation === 'buy'
+                                                ? 'bg-green-100 text-green-800'
+                                                : 'bg-red-100 text-red-800'
+                                        }`}
+                                    >
+                                                                                {transaction.operation.charAt(0).toUpperCase() + transaction.operation.slice(1)}
+                                    </span>
                             </td>
                             <td className="p-3">{transaction.shares}</td>
                             <td className="p-3">${transaction.price.toFixed(2)}</td>

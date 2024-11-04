@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useParams } from 'react-router-dom';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -8,26 +9,17 @@ import {
     PointElement,
     Title,
     Tooltip,
-    Legend
+    Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { useParams } from 'react-router-dom';
 
-// Register the components with Chart.js
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    LineElement,
-    PointElement,
-    Title,
-    Tooltip,
-    Legend
-);
+// Register ChartJS components
+ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Title, Tooltip, Legend);
 
-interface PortfolioItem {
-    id: string;
+// Define types for data
+interface InstrumentData {
     instrument: string;
     shares: number;
     cost_basis: number;
@@ -45,35 +37,38 @@ interface Transaction {
     price: number;
 }
 
-const DetailedInstrument: React.FC = () => {
-    const { symbol } = useParams<{ symbol: string }>();
-    const [instrumentData, setInstrumentData] = useState<PortfolioItem | null>(null);
+function DetailedInstrument() {
+    const { symbol } = useParams<{ symbol: string }>(); // Extract symbol from URL params
+    const [instrumentData, setInstrumentData] = useState<InstrumentData | null>(null);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
 
     useEffect(() => {
-        // Fetch instrument data
-        axios.get<PortfolioItem[]>(`http://localhost:8000/portfolio?instrument=${symbol}`)
-            .then(response => {
+        const fetchInstrumentData = async () => {
+            try {
+                const response = await axios.get<InstrumentData[]>(`http://localhost:8000/portfolio?instrument=${symbol}`);
                 if (response.data.length > 0) {
                     setInstrumentData(response.data[0]);
                 } else {
                     toast.error("Instrument data not found!");
                 }
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error("Error fetching instrument data:", error);
                 toast.error("Failed to fetch instrument data.");
-            });
+            }
+        };
 
-        // Fetch transactions for the selected instrument
-        axios.get<Transaction[]>(`http://localhost:8000/transactions?instrument=${symbol}`)
-            .then(response => {
+        const fetchTransactions = async () => {
+            try {
+                const response = await axios.get<Transaction[]>(`http://localhost:8000/transactions?instrument=${symbol}`);
                 setTransactions(response.data);
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error("Error fetching transactions:", error);
                 toast.error("Failed to fetch transactions.");
-            });
+            }
+        };
+
+        fetchInstrumentData();
+        fetchTransactions();
     }, [symbol]);
 
     const renderGraph = () => {
@@ -82,17 +77,17 @@ const DetailedInstrument: React.FC = () => {
         }
 
         const chartData = {
-            labels: transactions.map(t => t.date),
+            labels: transactions.map((t) => t.date),
             datasets: [
                 {
                     label: `Price Trend for ${symbol}`,
-                    data: transactions.map(t => t.price),
+                    data: transactions.map((t) => t.price),
                     borderColor: 'rgba(75, 192, 192, 1)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     fill: true,
-                    tension: 0.1 // Adds some smoothness to the line
-                }
-            ]
+                    tension: 0.1,
+                },
+            ],
         };
 
         return (
@@ -113,13 +108,13 @@ const DetailedInstrument: React.FC = () => {
                     <p><strong>Market Value:</strong> ${instrumentData.market_value}</p>
                     <p><strong>Unrealized Return Rate:</strong> {instrumentData.unrealized_return_rate}%</p>
                     <p><strong>Unrealized Profit/Loss:</strong> ${instrumentData.unrealized_profit_loss}</p>
-                    {transactions.length > 0 && renderGraph()}
+                    {renderGraph()}
                 </div>
             ) : (
                 <p className="text-gray-600">Loading instrument data...</p>
             )}
         </div>
     );
-};
+}
 
 export default DetailedInstrument;
