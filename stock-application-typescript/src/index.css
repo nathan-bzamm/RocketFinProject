@@ -1,0 +1,55 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+body {
+    @apply bg-gray-100 text-gray-900;
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* Additional custom classes */
+.custom-shadow {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+table th, table td {
+    text-align: left;
+    padding: 12px;
+}
+
+table tr:hover {
+    background-color: #f1f1f1;
+}
+
+/* Global animations and transitions */
+.fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.transition-transform {
+    transition: transform 0.3s;
+}
+
+/* Light and dark mode styling */
+body.light {
+    background-color: #ffffff;
+    color: #000000;
+}
+
+body.dark {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}

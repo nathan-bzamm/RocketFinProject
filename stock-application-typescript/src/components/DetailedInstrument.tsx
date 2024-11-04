@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'; // Import React and hooks
-import axios from 'axios'; // Import axios for HTTP requests
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -9,12 +9,13 @@ import {
     Title,
     Tooltip,
     Legend
-} from 'chart.js'; // Import Chart.js components
-import { Line } from 'react-chartjs-2'; // Import Line chart from react-chartjs-2
-import { toast } from 'react-toastify'; // Import toast for notifications
-import 'react-toastify/dist/ReactToastify.css'; // Import toast styles
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useParams } from 'react-router-dom';
 
-// Register the necessary Chart.js components
+// Register the components with Chart.js
 ChartJS.register(
     CategoryScale,
     LinearScale,
@@ -25,15 +26,33 @@ ChartJS.register(
     Legend
 );
 
-function DetailedInstrument({ match }) {
-    // State variables for instrument and transaction data
-    const [instrumentData, setInstrumentData] = useState(null);
-    const [transactions, setTransactions] = useState([]);
-    const { symbol } = match.params; // Get the instrument symbol from the route parameters
+interface PortfolioItem {
+    id: string;
+    instrument: string;
+    shares: number;
+    cost_basis: number;
+    market_value: number;
+    unrealized_return_rate: number;
+    unrealized_profit_loss: number;
+}
+
+interface Transaction {
+    id: string;
+    date: string;
+    instrument: string;
+    operation: 'buy' | 'sell';
+    shares: number;
+    price: number;
+}
+
+const DetailedInstrument: React.FC = () => {
+    const { symbol } = useParams<{ symbol: string }>();
+    const [instrumentData, setInstrumentData] = useState<PortfolioItem | null>(null);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
 
     useEffect(() => {
         // Fetch instrument data
-        axios.get(`http://localhost:8000/portfolio?instrument=${symbol}`)
+        axios.get<PortfolioItem[]>(`http://localhost:8000/portfolio?instrument=${symbol}`)
             .then(response => {
                 if (response.data.length > 0) {
                     setInstrumentData(response.data[0]);
@@ -47,7 +66,7 @@ function DetailedInstrument({ match }) {
             });
 
         // Fetch transactions for the selected instrument
-        axios.get(`http://localhost:8000/transactions?instrument=${symbol}`)
+        axios.get<Transaction[]>(`http://localhost:8000/transactions?instrument=${symbol}`)
             .then(response => {
                 setTransactions(response.data);
             })
@@ -55,25 +74,23 @@ function DetailedInstrument({ match }) {
                 console.error("Error fetching transactions:", error);
                 toast.error("Failed to fetch transactions.");
             });
-    }, [symbol]); // Re-run the effect when the symbol changes
+    }, [symbol]);
 
-    // Function to render the price trend chart
     const renderGraph = () => {
         if (transactions.length === 0) {
             return <p className="text-gray-600">No transaction data available for this instrument.</p>;
         }
 
-        // Prepare chart data using transactions
         const chartData = {
-            labels: transactions.map(t => t.date), // Dates for x-axis
+            labels: transactions.map(t => t.date),
             datasets: [
                 {
                     label: `Price Trend for ${symbol}`,
-                    data: transactions.map(t => t.price), // Prices for y-axis
-                    borderColor: 'rgba(75, 192, 192, 1)', // Line color
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)', // Background fill color
+                    data: transactions.map(t => t.price),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     fill: true,
-                    tension: 0.1 // Smooth line curve
+                    tension: 0.1 // Adds some smoothness to the line
                 }
             ]
         };
@@ -81,7 +98,7 @@ function DetailedInstrument({ match }) {
         return (
             <div>
                 <h3 className="text-2xl font-bold mb-4">Price Trend</h3>
-                <Line data={chartData} /> {/* Render the Line chart */}
+                <Line data={chartData} />
             </div>
         );
     };
@@ -96,13 +113,13 @@ function DetailedInstrument({ match }) {
                     <p><strong>Market Value:</strong> ${instrumentData.market_value}</p>
                     <p><strong>Unrealized Return Rate:</strong> {instrumentData.unrealized_return_rate}%</p>
                     <p><strong>Unrealized Profit/Loss:</strong> ${instrumentData.unrealized_profit_loss}</p>
-                    {transactions.length > 0 && renderGraph()} {/* Show graph if transactions exist */}
+                    {transactions.length > 0 && renderGraph()}
                 </div>
             ) : (
-                <p className="text-gray-600">Loading instrument data...</p> // Display while loading data
+                <p className="text-gray-600">Loading instrument data...</p>
             )}
         </div>
     );
-}
+};
 
-export default DetailedInstrument; // Export the DetailedInstrument component
+export default DetailedInstrument;

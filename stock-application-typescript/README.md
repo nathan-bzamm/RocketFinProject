@@ -1,15 +1,21 @@
-# InvestoPro - Stock Portfolio Management Tool
+# InvestoPro - Stock Portfolio Management Tool (TypeScript Version)
 
-InvestoPro is a web-based tool that allows individual investors to manage and track their investments. Users can view their portfolio, trade securities, and analyze their transaction history. The tool features a modern user interface with interactive charts and data visualizations.
+InvestoPro is a web-based tool that enables individual investors to manage and track their investments with ease. This tool was initially developed in JavaScript and has now been converted to TypeScript to enhance type safety, maintainability, and scalability.
 
 ## Features
-- View and analyze your investment portfolio
-- Trade securities by buying or selling shares
-- Search for and view detailed information about specific stocks
-- Interactive charts showcasing price trends for each stock
-- Recent transactions overview on the homepage
-- Modern and responsive design using React and Tailwind CSS
+- View and analyze your investment portfolio.
+- Trade securities by buying or selling shares.
+- Search for and view detailed information about specific stocks.
+- Interactive charts showcasing price trends for each stock.
+- Overview of recent transactions on the homepage.
+- Modern, responsive design using React and Tailwind CSS.
+- Type safety and improved code structure with TypeScript.
 
+## Why TypeScript?
+The TypeScript version of InvestoPro was created to provide:
+- **Improved Type Safety**: Prevent common errors at compile-time.
+- **Enhanced Code Maintainability**: Type annotations and interfaces make the code easier to understand and maintain.
+- **Scalability**: Better suited for larger, more complex projects due to its robust type-checking system.
 
 ## Prerequisites
 - [Node.js](https://nodejs.org/) (version 14 or above)
@@ -20,7 +26,7 @@ InvestoPro is a web-based tool that allows individual investors to manage and tr
 
 ### 1. Clone the Repository
 
-git clone https://github.com/nathan-bzamm/RocketFinProject/ cd stock-application
+git clone https://github.com/nathan-bzamm/RocketFinProject/ cd stock-application-typescript
 
 ### 2. Install Dependencies
 Ensure you are in the project root directory, then run:
@@ -63,9 +69,11 @@ Once the React server and JSON server are running, open your browser and go to: 
 - The portfolio page shows all positions, cost basis, market value, unrealized return rate, and profit/loss.
 - Transaction page with ticker search and the ability to buy/sell shares.
 - Error handling and validations for user inputs.
+- Improved type safety and code maintainability using TypeScript.
 
 ## Troubleshooting
 - **Port Issues**: Ensure no other services are running on ports `8000` or `3000`.
+- **Type Errors**: Ensure all TypeScript types are correctly defined and dependencies are installed.
 - **Data Not Updating**: If changes do not appear, clear your browser cache or restart the JSON server and React app.
 
 ## Future Enhancements
@@ -76,6 +84,3 @@ Once the React server and JSON server are running, open your browser and go to: 
 ## Contact
 For questions or suggestions, please reach out to:
 - Your Name: [nathanbonavia17@gmail.com](mailto:nathanbonavia17@gmail.com)
-
-
-

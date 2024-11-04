@@ -1,45 +1,65 @@
-import React, { useState, useEffect } from 'react'; // Import React and hooks for state and side effects
-import axios from 'axios'; // Import axios for HTTP requests
-import { toast } from 'react-toastify'; // Import toast for notifications
-import 'react-toastify/dist/ReactToastify.css'; // Import toast styles
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
-function Home() {
-    // State variables for portfolio data and recent transactions
-    const [portfolio, setPortfolio] = useState([]);
-    const [recentTransactions, setRecentTransactions] = useState([]);
+// Type definition for portfolio items
+interface PortfolioItem {
+    id: string;
+    instrument: string;
+    shares: number;
+    cost_basis: number;
+    market_value: number;
+    unrealized_return_rate: number;
+    unrealized_profit_loss: number;
+}
 
-    // Fetch data when the component mounts
+// Type definition for transaction items
+interface Transaction {
+    id: string;
+    date: string;
+    instrument: string;
+    operation: 'buy' | 'sell';
+    shares: number;
+    price: number;
+}
+
+function Home(): JSX.Element {
+    // State for storing portfolio data
+    const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
+    // State for storing recent transactions
+    const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+
     useEffect(() => {
-        // Fetch portfolio data from the backend
-        axios.get('http://localhost:8000/portfolio')
+        // Fetch portfolio data
+        axios.get<PortfolioItem[]>('http://localhost:8000/portfolio')
             .then(response => {
-                setPortfolio(response.data); // Set portfolio data
+                setPortfolio(response.data);
             })
             .catch(error => {
                 console.error("Error fetching portfolio data:", error);
-                toast.error("Failed to fetch portfolio data."); // Show error notification
+                toast.error("Failed to fetch portfolio data.");
             });
 
-        // Fetch transaction data and display the 5 most recent transactions
-        axios.get('http://localhost:8000/transactions')
+        // Fetch transactions data and get the 5 most recent ones
+        axios.get<Transaction[]>('http://localhost:8000/transactions')
             .then(response => {
-                const sortedTransactions = response.data.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort transactions by date
-                setRecentTransactions(sortedTransactions.slice(0, 5)); // Set the 5 most recent transactions
+                const sortedTransactions = response.data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                setRecentTransactions(sortedTransactions.slice(0, 5));
             })
             .catch(error => {
                 console.error("Error fetching transactions:", error);
-                toast.error("Failed to fetch transactions."); // Show error notification
+                toast.error("Failed to fetch transactions.");
             });
-    }, []); // Empty dependency array means this runs once when the component mounts
+    }, []);
 
-    // Calculate the total market value and total profit/loss for the portfolio
+    // Calculate total market value and total profit/loss for the portfolio status
     const totalMarketValue = portfolio.reduce((total, item) => total + item.market_value, 0);
     const totalProfitLoss = portfolio.reduce((total, item) => total + item.unrealized_profit_loss, 0);
 
     return (
         <div>
             <h2 className="text-3xl font-bold mb-4">Portfolio Status</h2>
-            {/* Display portfolio summary */}
             <div className="bg-white p-6 rounded-lg shadow-md mb-8">
                 <p><strong>Total Market Value:</strong> ${totalMarketValue.toFixed(2)}</p>
                 <p><strong>Total Unrealized Profit/Loss:</strong> ${totalProfitLoss.toFixed(2)}</p>
@@ -47,7 +67,6 @@ function Home() {
             </div>
 
             <h2 className="text-3xl font-bold mb-4">Recent Transactions</h2>
-            {/* Display recent transactions */}
             <div className="bg-white p-6 rounded-lg shadow-md">
                 {recentTransactions.length > 0 ? (
                     <table className="min-w-full bg-white border border-gray-300 rounded-lg shadow-md">
@@ -62,10 +81,7 @@ function Home() {
                         </thead>
                         <tbody>
                         {recentTransactions.map((transaction, index) => (
-                            <tr
-                                key={transaction.id}
-                                className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`} // Alternate row colors
-                            >
+                            <tr key={transaction.id} className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                                 <td className="p-3">{transaction.date}</td>
                                 <td className="p-3">{transaction.instrument}</td>
                                 <td className="p-3">
@@ -76,7 +92,7 @@ function Home() {
                                                     : 'bg-red-100 text-red-800'
                                             }`}
                                         >
-                                            {transaction.operation.charAt(0).toUpperCase() + transaction.operation.slice(1)} {/* Capitalize operation */}
+                                            {transaction.operation.charAt(0).toUpperCase() + transaction.operation.slice(1)}
                                         </span>
                                 </td>
                                 <td className="p-3">{transaction.shares}</td>
@@ -86,11 +102,11 @@ function Home() {
                         </tbody>
                     </table>
                 ) : (
-                    <p className="text-gray-600 mt-4">No recent transactions available.</p> // Message if no transactions are available
+                    <p className="text-gray-600 mt-4">No recent transactions available.</p>
                 )}
             </div>
         </div>
     );
 }
 
-export default Home; // Export the Home component
+export default Home;

@@ -1,123 +1,136 @@
-import React, { useState, useEffect } from 'react'; // Import React and hooks
-import axios from 'axios'; // Import axios for HTTP requests
-import { debounce } from 'lodash'; // Import debounce from lodash for limiting API calls
-import { toast } from 'react-toastify'; // Import toast for notifications
-import 'react-toastify/dist/ReactToastify.css'; // Import toast styles
+import React, { useState, useEffect, ChangeEvent } from 'react';
+import axios from 'axios';
+import { debounce } from 'lodash';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+// Define types for the transaction and stock data
+interface StockData {
+    id: string;
+    instrument: string;
+    shares: number;
+    market_value: number;
+}
+
+interface Transaction {
+    id: string;
+    date: string;
+    instrument: string;
+    operation: 'buy' | 'sell';
+    shares: number;
+    price: number;
+}
 
 function Transactions() {
-    // State variables for input and data handling
-    const [symbol, setSymbol] = useState('');
-    const [selectedSymbol, setSelectedSymbol] = useState(''); // Track the selected symbol to prevent repeated API calls
-    const [suggestions, setSuggestions] = useState([]);
-    const [stockData, setStockData] = useState(null);
-    const [shares, setShares] = useState(0);
-    const [action, setAction] = useState('buy');
+    const [symbol, setSymbol] = useState<string>('');
+    const [selectedSymbol, setSelectedSymbol] = useState<string>('');
+    const [suggestions, setSuggestions] = useState<StockData[]>([]);
+    const [stockData, setStockData] = useState<StockData | null>(null);
+    const [shares, setShares] = useState<number>(0);
+    const [action, setAction] = useState<'buy' | 'sell'>('buy');
 
-    // Debounced function for fetching suggestions based on input
+    // Debounced function to fetch suggestions
     const fetchSuggestions = debounce(() => {
         if (symbol.length > 1 && symbol !== selectedSymbol) {
-            axios.get('http://localhost:8000/portfolio')
+            axios.get<StockData[]>('http://localhost:8000/portfolio')
                 .then(response => {
                     const matches = response.data.filter(stock => stock.instrument.toLowerCase().includes(symbol.toLowerCase()));
                     setSuggestions(matches);
                 })
                 .catch(error => {
-                    console.error('Error fetching suggestions:', error);
-                    toast.error('Failed to fetch suggestions.');
+                    console.error("Error fetching suggestions:", error);
+                    toast.error("Failed to fetch suggestions.");
                 });
         } else {
             setSuggestions([]);
         }
-    }, 300); // 300ms delay for debounce
+    }, 300);
 
     useEffect(() => {
         if (symbol !== selectedSymbol) {
             fetchSuggestions();
         }
-    }, [symbol]);
+    }, [symbol, fetchSuggestions, selectedSymbol]);
 
-    const handleSelectSuggestion = (selectedSymbol) => {
+    const handleSelectSuggestion = (selectedSymbol: string) => {
         setSymbol(selectedSymbol);
-        setSelectedSymbol(selectedSymbol); // Update the selected symbol
-        setSuggestions([]); // Clear suggestions after selection
-        fetchStockData(selectedSymbol); // Fetch stock data for the selected symbol
+        setSelectedSymbol(selectedSymbol);
+        setSuggestions([]);
+        fetchStockData(selectedSymbol);
     };
 
-    const fetchStockData = (inputSymbol = symbol) => {
-        setSuggestions([]); // Clear suggestions before fetching
+    const fetchStockData = async (inputSymbol = symbol): Promise<StockData> => {
+        setSuggestions([]);
         const uppercaseSymbol = inputSymbol.toUpperCase();
-        return axios.get(`http://localhost:8000/portfolio?instrument=${uppercaseSymbol}`)
-            .then(response => {
-                if (response.data.length > 0) {
-                    setStockData(response.data[0]);
-                    toast.success('Stock data fetched successfully!');
-                    return response.data[0];
-                } else {
-                    toast.error('Stock data not found!');
-                    throw new Error('Stock data not found');
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching stock data:', error);
-                toast.error('Failed to fetch stock data.');
-                throw error;
-            });
+        try {
+            const response = await axios.get<StockData[]>(`http://localhost:8000/portfolio?instrument=${uppercaseSymbol}`);
+            if (response.data.length > 0) {
+                const data = response.data[0];
+                setStockData(data);
+                toast.success("Stock data fetched successfully!");
+                return data;
+            } else {
+                toast.error("Stock data not found!");
+                throw new Error("Stock data not found");
+            }
+        } catch (error) {
+            console.error("Error fetching stock data:", error);
+            toast.error("Failed to fetch stock data.");
+            throw error;
+        }
     };
+
 
     const handleTrade = async () => {
         if (!symbol) {
-            toast.error('Please enter a valid ticker symbol.');
+            toast.error("Please enter a valid ticker symbol.");
             return;
         }
 
         let currentStockData = stockData;
 
-        // Fetch data if not already available
         if (!stockData || stockData.instrument !== symbol.toUpperCase()) {
             try {
                 currentStockData = await fetchStockData();
             } catch {
-                return; // Stop if fetching fails
+                return;
             }
         }
 
-        // Validate sell operation
-        if (action === 'sell' && shares > currentStockData.shares) {
-            toast.error('You cannot sell more shares than you own.');
+        if (action === 'sell' && currentStockData && shares > currentStockData.shares) {
+            toast.error("You cannot sell more shares than you own.");
             return;
         }
 
-        const newShares = action === 'buy' ? currentStockData.shares + shares : currentStockData.shares - shares;
+        const newShares = action === 'buy'
+            ? (currentStockData?.shares ?? 0) + shares
+            : (currentStockData?.shares ?? 0) - shares;
 
-        // Find the next incremental ID for the transaction
-        axios.get('http://localhost:8000/transactions')
+        axios.get<Transaction[]>('http://localhost:8000/transactions')
             .then(response => {
                 const maxId = response.data.length > 0 ? Math.max(...response.data.map(t => parseInt(t.id, 10))) : 0;
                 const newId = (maxId + 1).toString();
 
-                // Post the new transaction
                 axios.post('http://localhost:8000/transactions', {
                     id: newId,
-                    date: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format
+                    date: new Date().toISOString().split('T')[0],
                     instrument: symbol,
                     operation: action,
                     shares: shares,
-                    price: currentStockData.market_value
+                    price: currentStockData?.market_value ?? 0
                 })
                     .then(() => {
-                        // Update the portfolio with new share count
-                        axios.patch(`http://localhost:8000/portfolio/${currentStockData.id}`, { shares: newShares })
+                        axios.patch(`http://localhost:8000/portfolio/${currentStockData?.id}`, { shares: newShares })
                             .then(() => {
                                 toast.success(`${action === 'buy' ? 'Bought' : 'Sold'} ${shares} shares successfully!`);
-                                // Reset the form
                                 setSymbol('');
                                 setSelectedSymbol('');
                                 setShares(0);
                                 setStockData(null);
                             })
                             .catch(error => {
-                                console.error('Error updating portfolio:', error);
-                                toast.error('Failed to update portfolio.');
+                                console.error("Error updating portfolio:", error);
+                                toast.error("Failed to update portfolio.");
                             });
                     })
                     .catch(error => {
@@ -126,7 +139,7 @@ function Transactions() {
                     });
             })
             .catch(error => {
-                console.error('Error fetching transactions for ID generation:', error);
+                console.error("Error fetching transactions for ID generation:", error);
             });
     };
 
@@ -134,13 +147,12 @@ function Transactions() {
         <div className="space-y-6">
             <h2 className="text-3xl font-bold mb-4">Trade Securities</h2>
             <div className="bg-white p-6 rounded-lg shadow-md">
-                {/* Ticker symbol input with suggestions */}
                 <div className="mb-4 relative">
                     <label className="block text-gray-700 font-medium">Ticker Symbol</label>
                     <input
                         type="text"
                         value={symbol}
-                        onChange={(e) => setSymbol(e.target.value)}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setSymbol(e.target.value)}
                         className="w-full p-3 border border-gray-300 rounded mt-1 focus:border-blue-500 focus:outline-none"
                         placeholder="e.g., AAPL"
                     />
@@ -158,41 +170,33 @@ function Transactions() {
                         </ul>
                     )}
                 </div>
-
-                {/* Display stock data */}
                 {stockData && (
                     <div className="mt-4 p-4 bg-gray-100 rounded">
                         <p><strong>Instrument:</strong> {stockData.instrument}</p>
                         <p><strong>Current Market Value:</strong> ${stockData.market_value}</p>
                     </div>
                 )}
-
-                {/* Quantity input */}
                 <div className="mb-4 mt-4">
                     <label className="block text-gray-700 font-medium">Quantity</label>
                     <input
                         type="number"
                         value={shares}
-                        onChange={(e) => setShares(Number(e.target.value))}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setShares(Number(e.target.value))}
                         className="w-full p-3 border border-gray-300 rounded mt-1 focus:border-blue-500 focus:outline-none"
                         placeholder="Enter number of shares"
                     />
                 </div>
-
-                {/* Action dropdown */}
                 <div className="mb-4">
                     <label className="block text-gray-700 font-medium">Action</label>
                     <select
                         value={action}
-                        onChange={(e) => setAction(e.target.value)}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) => setAction(e.target.value as 'buy' | 'sell')}
                         className="w-full p-3 border border-gray-300 rounded mt-1 focus:border-blue-500 focus:outline-none"
                     >
                         <option value="buy">Buy</option>
                         <option value="sell">Sell</option>
                     </select>
                 </div>
-
-                {/* Submit button */}
                 <button
                     onClick={handleTrade}
                     className="w-full bg-blue-500 text-white p-3 rounded-lg mt-4 hover:bg-blue-600 transition duration-200"
@@ -204,4 +208,4 @@ function Transactions() {
     );
 }
 
-export default Transactions; // Export the Transactions component
+export default Transactions;
